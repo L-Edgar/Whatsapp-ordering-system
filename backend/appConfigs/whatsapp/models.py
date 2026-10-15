@@ -18,3 +18,14 @@ class ProcessedMessage(models.Model):
     """Dedup table — Meta retries webhook deliveries, this stops double-processing."""
     message_id = models.CharField(max_length=100, unique=True)
     processed_at = models.DateTimeField(auto_now_add=True)
+    
+class ConversationState(models.Model):
+    customer = models.OneToOneField(
+        "customers.Customer", on_delete=models.CASCADE, related_name="conversation"
+    )
+    state = models.CharField(max_length=40, default="MAIN_MENU")
+    context = models.JSONField(default=dict, blank=True)  # e.g. {"product_id": 15}
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.customer} → {self.state}"

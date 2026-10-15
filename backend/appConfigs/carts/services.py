@@ -11,8 +11,14 @@ def get_or_create_open_cart(business, customer):
 
 @transaction.atomic
 def add_item(cart, product, quantity):
-    if product.stock_quantity < quantity:
-        raise ValueError(f"Only {product.stock_quantity} {product.unit} of {product.name} left in stock.")
+    # carts/services.py — in add_item, replace the stock check
+    existing = CartItem.objects.filter(cart=cart, product=product).first()
+    already_in_cart = existing.quantity if existing else 0
+    if product.stock_quantity < already_in_cart + quantity:
+        raise ValueError(
+            f"Only {product.stock_quantity} {product.unit} of {product.name} in stock "
+            f"({already_in_cart} already in your cart)."
+    )
 
     item, created = CartItem.objects.get_or_create(
         cart=cart, product=product,

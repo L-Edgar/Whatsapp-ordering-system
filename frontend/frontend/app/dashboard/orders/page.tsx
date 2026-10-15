@@ -40,28 +40,39 @@ export default function Orders() {
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState<number | null>(null);
     const [error, setError] = useState("");
+    const [notice, setNotice] = useState<{ type: "ok" | "warn"; text: string } | null>(null);
 
-    const load = () => {
-        setLoading(true);
-        setError("");
+    const load = (silent = false) => {
+        if (!silent) setLoading(true);
         api.get("/orders/")
             .then(({ data }) => setOrders(data))
             .catch((err) => {
-                console.error("Orders fetch failed:", err.response?.status, err.response?.data);
-                setError(`Couldn't load orders (${err.response?.status || "network error"}).`);
+                if (!silent) setError(`Couldn't load orders (${err.response?.status || "network error"}).`);
             })
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+        const timer = setInterval(() => load(true), 15000);
+        return () => clearInterval(timer);
+    }, []);
 
     const handleStatusChange = async (orderId: number, newStatus: string) => {
         setUpdatingId(orderId);
+        setNotice(null);
         try {
-            await api.patch(`/orders/${orderId}/update_status/`, { status: newStatus });
-            setOrders((prev) =>
-                prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-            );
+            const { data } = await api.patch(`/orders/${orderId}/update_status/`, { status: newStatus });
+            setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: data.status } : o)));
+
+            if (data.customer_notified) {
+                setNotice({ type: "ok", text: `${data.order_number}: customer notified on WhatsApp.` });
+            } else if (newStatus !== "pending") {
+                setNotice({
+                    type: "warn",
+                    text: `${data.order_number} updated, but the WhatsApp message could not be delivered.`,
+                });
+            }
         } catch {
             alert("Couldn't update order status. Try again.");
         } finally {
@@ -74,7 +85,12 @@ export default function Orders() {
     return (
         <div>
             <h1 className="text-xl font-semibold mb-4">Orders</h1>
-            {error && <p className="text-red-500 mb-4">{error}</p>}
+            {notice && (
+                <p className={`mb-4 text-sm rounded px-3 py-2 ${notice.type === "ok" ? "bg-green-50 text-green-800" : "bg-yellow-50 text-yellow-800"
+                    }`}>
+                    {notice.text}
+                </p>
+            )}
             {orders.length === 0 ? (
                 <p className="text-gray-500">
                     No orders yet. They'll appear here once customers start checking out.
@@ -83,7 +99,7 @@ export default function Orders() {
                 <div className="space-y-3">
                     {orders.map((order) => (
                         <div key={order.id} className="border rounded">
-                           
+
                             <div
                                 className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center p-4 cursor-pointer"
                                 onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}

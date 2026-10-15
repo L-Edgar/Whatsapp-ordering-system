@@ -8,6 +8,7 @@ from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import ProcessedMessage
+from .handlers import handle_incoming_message
 
 logger = logging.getLogger("whatsapp")
 
@@ -44,26 +45,27 @@ class WhatsAppWebhookView(APIView):
             # this was a delivery/read status update, not an incoming message
             return Response(status=200)
 
+        contacts = change.get("contacts") or [{}]
+        profile_name = contacts[0].get("profile", {}).get("name", "")
+
         for message in messages:
-            message_id = message["id"]
+            _, created = ProcessedMessage.objects.get_or_create(message_id=message["id"])
+            if not created:
+                continue  # Meta retry, already handled
 
-            # idempotency: Meta retries on any non-200 or timeout — don't double-process
-            if ProcessedMessage.objects.filter(message_id=message_id).exists():
-                continue
-            ProcessedMessage.objects.create(message_id=message_id)
+        from_number = message["from"]
+        business_phone_id = change["metadata"]["phone_number_id"]
+        text = message.get("text", {}).get("body", "")
+        interactive = message.get("interactive", {})
+        action_id = (
+        interactive.get("button_reply", {}).get("id")
+        or interactive.get("list_reply", {}).get("id")
+        )
 
-            from_number = message["from"]
-            business_phone_id = change["metadata"]["phone_number_id"]
-            text = message.get("text", {}).get("body", "")
-            button_reply = message.get("interactive", {}).get("button_reply", {}).get("id")
-            list_reply = message.get("interactive", {}).get("list_reply", {}).get("id")
-
-            logger.info(
-                "Message from %s to business_phone_id=%s: text=%r button=%r list=%r",
-                from_number, business_phone_id, text, button_reply, list_reply,
-            )
-
-            # Stage 5 will replace this stub with the real conversation dispatcher
-            # handle_incoming_message(business_phone_id, from_number, text, button_reply or list_reply)
+        try:
+            handle_incoming_message(business_phone_id, from_number, text, action_id, profile_name)
+        except Exception:
+        # never let a handler bug turn into a non-200, or Meta will retry the same message
+            logger.exception("Error handling message %s", message["id"])
 
         return Response(status=200)

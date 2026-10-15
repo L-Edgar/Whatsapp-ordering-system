@@ -22,12 +22,14 @@ from catalog.views import CategoryViewSet, ProductViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from orders.views import OrderViewSet
 from whatsapp.views import WhatsAppWebhookView
+from customers.views import CustomerViewSet
 
 router = DefaultRouter()
 router.register("businesses", BusinessViewSet, basename="business")
 router.register("categories", CategoryViewSet, basename="category")
 router.register("products", ProductViewSet, basename="product")
 router.register("orders", OrderViewSet, basename="order")
+router.register("customers", CustomerViewSet, basename="customer")
 
 urlpatterns = [
     path('admin/', admin.site.urls),

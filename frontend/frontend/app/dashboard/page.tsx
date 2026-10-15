@@ -7,11 +7,16 @@ export default function DashboardHome() {
   const [counts, setCounts] = useState({ products: 0, orders: 0, customers: 0 });
 
   useEffect(() => {
-    Promise.all([
-      api.get("/products/"),
-      // orders/customers endpoints don't exist until Stage 3 — stub them out
-    ]).then(([products]) => {
-      setCounts((c) => ({ ...c, products: products.data.length }));
+    Promise.all([api.get("/products/"), api.get("/orders/"), api.get("/customers/")]).then(([products, orders, customers]) => {
+      const today = new Date().toDateString();
+      const ordersToday = orders.data.filter(
+        (o: Order) => new Date(o.created_at).toDateString() === today
+      ).length;
+      setCounts({
+        products: products.data.length,
+        orders: ordersToday,
+        customers: customers.data.length,
+      });
     });
   }, []);
 

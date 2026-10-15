@@ -49,3 +49,13 @@ def create_order_from_cart(cart, delivery_address, delivery_fee=0):
     cart.save()
 
     return order
+
+def change_status(order, new_status):
+    """Returns True if the status actually changed."""
+    if new_status not in dict(Order.STATUS_CHOICES):
+        raise ValueError("Invalid status.")
+    if new_status == order.status:
+        return False
+    order.status = new_status
+    order.save(update_fields=["status"])
+    return True

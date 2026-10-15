@@ -31,10 +31,12 @@ DEBUG = True
 ALLOWED_HOSTS = [
      "localhost",
     "127.0.0.1",
-    "hardhead-tactful-trifle.ngrok-free.dev",
+    ".ngrok-free.dev",
+    ".ngrok-free.app",
+    ".ngrok.io"
 ]
 
-
+DELIVERY_FEE = 5000  # flat fee for the prototype
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),
@@ -165,3 +167,12 @@ MAILERS = {
 
 # config/settings.py
 WHATSAPP_VERIFY_TOKEN = config("WHATSAPP_VERIFY_TOKEN")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "whatsapp": {"handlers": ["console"], "level": "INFO"},
+    },
+}

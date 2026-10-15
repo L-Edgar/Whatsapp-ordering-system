@@ -4,6 +4,8 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from .models import Order
 from .serializers import OrderSerializer
+from .notifications import notify_status_change
+from .services import change_status
 
 
 def _business_for(user):
@@ -22,9 +24,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"])
     def update_status(self, request, pk=None):
         order = self.get_object()
-        new_status = request.data.get("status")
-        if new_status not in dict(Order.STATUS_CHOICES):
-            return Response({"error": "Invalid status."}, status=400)
-        order.status = new_status
-        order.save()
-        return Response(OrderSerializer(order).data)
+        try:
+            changed = change_status(order, request.data.get("status"))
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+
+        notified = notify_status_change(order) if changed else False
+        return Response({**OrderSerializer(order).data, "customer_notified": notified})
